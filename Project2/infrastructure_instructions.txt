@@ -1,0 +1,293 @@
+================================================================================
+  SE 4220 – Project 2: Photo Gallery  –  Infrastructure Setup Instructions
+================================================================================
+
+This file walks through every step needed to deploy Parts A, B, and C on AWS.
+
+────────────────────────────────────────────────────────────────────────────────
+ PREREQUISITES
+────────────────────────────────────────────────────────────────────────────────
+  • An AWS account with permissions for EC2, S3, DynamoDB, and IAM
+  • A key-pair (.pem) for SSH access to EC2
+  • Git installed locally (or upload zip to instance)
+
+================================================================================
+ STEP 1 — LAUNCH AN EC2 INSTANCE
+================================================================================
+
+1. Open the AWS Console → EC2 → Launch Instance.
+2. Choose   : Amazon Linux 2023 AMI  (or Ubuntu 22.04 LTS)
+3. Type     : t2.micro  (free-tier eligible)
+4. Key pair : Select or create a key pair and download the .pem file.
+5. Security Group — add these Inbound rules:
+     ┌──────────┬──────────┬────────────────┐
+     │ Type     │ Port     │ Source         │
+     ├──────────┼──────────┼────────────────┤
+     │ SSH      │ 22       │ My IP          │
+     │ Custom   │ 5000     │ 0.0.0.0/0     │  ← Flask dev / gunicorn
+     │ Custom   │ 80       │ 0.0.0.0/0     │  ← optional nginx proxy
+     └──────────┴──────────┴────────────────┘
+6. Launch the instance.  Note the public IP / DNS.
+
+================================================================================
+ STEP 2 — SSH INTO THE INSTANCE
+================================================================================
+
+  ssh -i "your-key.pem" ec2-user@<PUBLIC_IP>
+       (or ubuntu@<PUBLIC_IP> for Ubuntu AMI)
+
+================================================================================
+ STEP 3 — INSTALL SYSTEM PACKAGES
+================================================================================
+
+  ## Amazon Linux 2023
+  sudo yum update -y
+  sudo yum install python3 python3-pip git -y
+
+  ## Ubuntu 22.04
+  sudo apt update && sudo apt upgrade -y
+  sudo apt install python3 python3-pip python3-venv git -y
+
+================================================================================
+ STEP 4 — CLONE THE REPO & INSTALL PYTHON DEPENDENCIES
+================================================================================
+
+  git clone <YOUR_REPO_URL> ~/project
+  cd ~/project/Project2
+
+  python3 -m venv venv
+  source venv/bin/activate
+
+  pip install --upgrade pip
+  pip install -r requirements.txt
+
+================================================================================
+ STEP 5 — CONFIGURE ENVIRONMENT VARIABLES
+================================================================================
+
+  cp .env.example .env
+  nano .env          # fill in real values ↓
+
+  Required values:
+    AWS_ACCESS_KEY_ID       = <your IAM access key>
+    AWS_SECRET_ACCESS_KEY   = <your IAM secret key>
+    AWS_REGION              = us-east-1
+    S3_BUCKET_NAME          = se422-photo-gallery-bucket   (pick unique name)
+    SECRET_KEY              = <random string>
+
+  Part-A only:
+    DYNAMO_USERS_TABLE      = PhotoGalleryUsers
+    DYNAMO_PHOTOS_TABLE     = PhotoGalleryPhotos
+
+  Part-B only:
+    MONGO_URI               = mongodb://localhost:27017
+    MONGO_DB_NAME           = photo_gallery
+
+================================================================================
+ STEP 6 — CREATE IAM USER (if not done)
+================================================================================
+
+  1. AWS Console → IAM → Users → Add User
+  2. Attach these managed policies:
+       • AmazonDynamoDBFullAccess
+       • AmazonS3FullAccess
+  3. Create access keys → copy into .env
+
+================================================================================
+ STEP 7A — RUN PART A (DynamoDB)
+================================================================================
+
+  cd ~/project/Project2
+  source venv/bin/activate
+
+  # Development mode (quick test):
+  python partA_dynamodb/app.py
+
+  # Production mode (recommended):
+  gunicorn --bind 0.0.0.0:5000 --chdir partA_dynamodb app:app
+
+  Open browser → http://<EC2_PUBLIC_IP>:5000
+
+  The app auto-creates:
+    • DynamoDB tables (PhotoGalleryUsers, PhotoGalleryPhotos)
+    • S3 bucket
+
+================================================================================
+ STEP 7B — INSTALL MongoDB ON THE EC2 INSTANCE (Part B)
+================================================================================
+
+  ### Amazon Linux 2023 ###
+
+  # 1. Add MongoDB repo
+  sudo tee /etc/yum.repos.d/mongodb-org-7.0.repo <<'EOF'
+[mongodb-org-7.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/amazon/2023/mongodb-org/7.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-7.0.asc
+EOF
+
+  # 2. Install
+  sudo yum install -y mongodb-org
+
+  # 3. Start & enable
+  sudo systemctl start mongod
+  sudo systemctl enable mongod
+
+  # 4. Verify
+  mongosh --eval "db.runCommand({ping:1})"
+
+
+  ### Ubuntu 22.04 ###
+
+  # 1. Import key & add repo
+  curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+      sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+  echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] \
+      https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | \
+      sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+  sudo apt update
+  sudo apt install -y mongodb-org
+
+  # 2. Start & enable
+  sudo systemctl start mongod
+  sudo systemctl enable mongod
+
+================================================================================
+ STEP 8B — RUN PART B (MongoDB)
+================================================================================
+
+  cd ~/project/Project2
+  source venv/bin/activate
+
+  # Development:
+  python partB_mongodb/app.py
+
+  # Production:
+  gunicorn --bind 0.0.0.0:5000 --chdir partB_mongodb app:app
+
+  Open browser → http://<EC2_PUBLIC_IP>:5000
+
+================================================================================
+ STEP 9 — PART C: MIGRATE DATA FROM DynamoDB → MongoDB
+================================================================================
+
+  Make sure:
+    ✓  Part A has been running and contains data (users + photos)
+    ✓  MongoDB is running on the EC2 instance
+    ✓  .env has BOTH DynamoDB and MongoDB settings filled in
+
+  Run the migration script:
+
+    cd ~/project/Project2
+    source venv/bin/activate
+    python partC_migration/migrate_dynamo_to_mongo.py
+
+  Expected output:
+    ============================================================
+      DynamoDB  ➜  MongoDB  Migration
+    ============================================================
+    [1/2] Scanning DynamoDB table 'PhotoGalleryUsers' …
+          Found N user(s).
+          Upserted N, modified 0 user document(s).
+    [2/2] Scanning DynamoDB table 'PhotoGalleryPhotos' …
+          Found N photo(s).
+          Upserted N, modified 0 photo document(s).
+    ============================================================
+      Migration complete!
+    ============================================================
+
+  After migration, start Part B and verify the same users/photos appear.
+
+  TAKE SCREENSHOTS of:
+    • The migration script terminal output
+    • Part B gallery showing the migrated photos
+    • (Optional) mongosh showing db.users.find() and db.photos.find()
+
+================================================================================
+ STEP 10 — KEEP THE SYSTEM RUNNING (48 hours after deadline)
+================================================================================
+
+  Use a terminal multiplexer so the app stays alive after you disconnect:
+
+    sudo yum install tmux -y        # or: sudo apt install tmux -y
+    tmux new -s gallery
+
+    cd ~/project/Project2
+    source venv/bin/activate
+    gunicorn --bind 0.0.0.0:5000 --chdir partB_mongodb app:app
+
+    # Detach: Ctrl+B then D
+    # Re-attach later: tmux attach -t gallery
+
+  Alternatively use systemd or nohup:
+
+    nohup gunicorn --bind 0.0.0.0:5000 --chdir partB_mongodb app:app &
+
+================================================================================
+ PROJECT FILE TREE
+================================================================================
+
+  Project2/
+  ├── .env.example              ← copy to .env and fill in credentials
+  ├── requirements.txt          ← pip install -r requirements.txt
+  │
+  ├── partA_dynamodb/
+  │   └── app.py                ← Flask app using DynamoDB + S3
+  │
+  ├── partB_mongodb/
+  │   └── app.py                ← Flask app using MongoDB + S3
+  │
+  ├── partC_migration/
+  │   └── migrate_dynamo_to_mongo.py   ← migration script
+  │
+  ├── templates/                ← shared Jinja2 HTML templates
+  │   ├── base.html
+  │   ├── login.html
+  │   ├── register.html
+  │   ├── gallery.html
+  │   ├── upload.html
+  │   └── search.html
+  │
+  └── static/
+      └── style.css             ← custom CSS
+
+================================================================================
+ DELIVERABLE CHECKLIST
+================================================================================
+
+  Part A (DynamoDB):
+    [ ] Screenshots of login screen
+    [ ] Screenshots of uploading 20 photos
+    [ ] Screenshots of searching and downloading 5 photos
+    [ ] Link + password supplied to TA
+
+  Part B (MongoDB):
+    [ ] Same screenshots as above with MongoDB backend
+
+  Part C (Migration):
+    [ ] Screenshot of migration script running
+    [ ] Screenshot proving data appears in MongoDB
+    [ ] Screenshots showing Part B working with migrated data
+
+================================================================================
+ TROUBLESHOOTING
+================================================================================
+
+  • "botocore.exceptions.NoCredentialsError"
+      → Check .env has correct AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+
+  • "Table already exists" warning
+      → Safe to ignore; the app checks before creating
+
+  • Port 5000 not reachable
+      → Verify EC2 Security Group allows inbound TCP 5000 from 0.0.0.0/0
+
+  • MongoDB connection refused
+      → sudo systemctl status mongod   (make sure it is active)
+
+  • S3 "Access Denied"
+      → IAM user needs AmazonS3FullAccess policy
+
+================================================================================
