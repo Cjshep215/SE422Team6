@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}My Gallery – Photo Gallery{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2><i class="bi bi-collection"></i> My Photos</h2>
+  <a href="{{ url_for('upload') }}" class="btn btn-success">
+    <i class="bi bi-cloud-arrow-up"></i> Upload Photos
+  </a>
+</div>
+
+{% if photos %}
+<div class="row g-4">
+  {% for photo in photos %}
+  <div class="col-sm-6 col-md-4 col-lg-3">
+    <div class="card h-100 shadow-sm photo-card">
+      <div class="card-img-top-wrapper">
+        <img src="{{ url_for('download', photo_id=photo.photo_id) }}"
+             class="card-img-top" alt="{{ photo.filename }}" loading="lazy">
+      </div>
+      <div class="card-body">
+        <h6 class="card-title text-truncate" title="{{ photo.filename }}">
+          {{ photo.filename }}
+        </h6>
+        {% if photo.tags %}
+        <p class="card-text">
+          {% for tag in photo.tags.split(',') %}
+          <span class="badge bg-info text-dark">{{ tag.strip() }}</span>
+          {% endfor %}
+        </p>
+        {% endif %}
+        {% if photo.description %}
+        <p class="card-text small text-muted">{{ photo.description }}</p>
+        {% endif %}
+        <p class="card-text">
+          <small class="text-muted">{{ photo.uploaded_at[:10] }}</small>
+        </p>
+      </div>
+      <div class="card-footer bg-white d-flex justify-content-between">
+        <a href="{{ url_for('download', photo_id=photo.photo_id) }}"
+           class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-download"></i> Download
+        </a>
+        <form method="POST"
+              action="{{ url_for('delete', photo_id=photo.photo_id) }}"
+              onsubmit="return confirm('Delete this photo?');">
+          <button class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-images" style="font-size:4rem;color:#ccc;"></i>
+  <p class="mt-3 text-muted">No photos yet. Start by uploading some!</p>
+  <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Photos</a>
+</div>
+{% endif %}
+{% endblock %}

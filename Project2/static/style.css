@@ -1,0 +1,26 @@
+/* ── Photo Gallery Custom Styles ── */
+body {
+  background-color: #f4f6f9;
+}
+.photo-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.photo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0,0,0,.15) !important;
+}
+.card-img-top-wrapper {
+  height: 200px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e9ecef;
+}
+.card-img-top-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.card-title { font-size: .9rem; }
+.navbar-brand i { margin-right: .3rem; }
