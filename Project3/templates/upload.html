@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Upload - Photo Gallery{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="mb-4">Upload Photos</h3>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Select Photos</label>
+                        <input type="file" name="photos" class="form-control" accept="image/*" multiple required>
+                        <div class="form-text">Accepted formats: PNG, JPG, JPEG, GIF, WEBP. Max 16 MB each.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description (optional)</label>
+                        <textarea name="description" class="form-control" rows="2" placeholder="Add a description for these photos"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                    <a href="{{ url_for('gallery') }}" class="btn btn-secondary ms-2">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Search - Photo Gallery{% endblock %}
+{% block content %}
+<h2 class="mb-4">Search Photos</h2>
+
+<form method="GET" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="q" class="form-control" placeholder="Search by filename or description..." value="{{ query }}">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+</form>
+
+{% if query %}
+<p class="text-muted">{{ photos|length }} result(s) for "{{ query }}"</p>
+{% endif %}
+
+{% if photos %}
+<div class="row g-4">
+    {% for photo in photos %}
+    <div class="col-sm-6 col-md-4 col-lg-3">
+        <div class="card photo-card shadow-sm h-100">
+            <img src="{{ url_for('static', filename='uploads/' + photo.filename) }}" class="card-img-top" alt="{{ photo.original_name }}">
+            <div class="card-body">
+                <p class="card-title fw-bold text-truncate mb-1">{{ photo.original_name }}</p>
+                {% if photo.description %}
+                <p class="card-text text-muted small">{{ photo.description }}</p>
+                {% endif %}
+                <a href="{{ url_for('download', photo_id=photo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% elif query %}
+<p class="text-center text-muted py-4">No photos found matching your search.</p>
+{% endif %}
+{% endblock %}

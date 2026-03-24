@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}My Gallery - Photo Gallery{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>My Photos ({{ photos|length }})</h2>
+    <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Photos</a>
+</div>
+
+{% if photos %}
+<div class="row g-4">
+    {% for photo in photos %}
+    <div class="col-sm-6 col-md-4 col-lg-3">
+        <div class="card photo-card shadow-sm h-100">
+            <img src="{{ url_for('static', filename='uploads/' + photo.filename) }}" class="card-img-top" alt="{{ photo.original_name }}">
+            <div class="card-body">
+                <p class="card-title fw-bold text-truncate mb-1" title="{{ photo.original_name }}">{{ photo.original_name }}</p>
+                {% if photo.description %}
+                <p class="card-text text-muted small">{{ photo.description }}</p>
+                {% endif %}
+                <p class="card-text"><small class="text-muted">{{ photo.uploaded_at.strftime('%b %d, %Y') }}</small></p>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('download', photo_id=photo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
+                    <form method="POST" action="{{ url_for('delete', photo_id=photo.id) }}" onsubmit="return confirm('Delete this photo?')">
+                        <button class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <h4 class="text-muted">No photos yet</h4>
+    <p>Upload your first photos to get started!</p>
+    <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Photos</a>
+</div>
+{% endif %}
+{% endblock %}
