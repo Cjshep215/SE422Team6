@@ -38,6 +38,7 @@ def get_db():
         database=os.environ.get("DB_NAME", "photo_gallery"),
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
+        ssl={"ssl": True},
     )
 
 
